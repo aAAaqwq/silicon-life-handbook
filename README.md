@@ -12,17 +12,25 @@
 
 | 卷 | 主题 | 核心问题 | 篇数 |
 |:--:|------|---------|:----:|
-| **卷一** | 为什么训虾 | 为什么要系统化训练 AI Agent | — |
+| **卷一** | 硅基生命训练学 | 为什么需要系统化训练 AI Agent | 5 |
 | **卷二** | 生命协议 | SOUL/USER/AGENTS/MEMORY 等七大文档怎么写、为什么这么写 | 8 |
 | **卷三** | 系统骨架 | Runtime、Session、Workspace、Skills、Multi-Agent 底层机制 | 12 |
 | **卷四** | 训练流程 | 从零训到专家的完整阶梯、教练虾机制、双三角模型 | 8 |
 | **卷五** | 长期表现 | 记忆管理、心跳策略、会话污染、文档漂移、稳定性检查 | 8 |
-| **卷六** | 治理系统 | 任务卡、验收口径 — 防止军团失真、甩锅、造假 | 3 |
-| **卷七** | 军团协同 | 路由系统、Handoff 协议、让位协议、治理账本、信任体系 | 10 |
+| **卷六** | 治理系统 | 任务卡、验收口径、三证验真、整改单、信誉分、治理边界 | 7 |
+| **卷七** | 协同军团 | 军团编制、三省制、A2A 协议、群聊私聊与让位规则 | 6 |
+| **卷八** | 超维智能演进 | 动态进化机制、记忆全息网络、自主目标生成 | 5 |
 
-**总计**：52 篇，21,000+ 行
+**总计**：8 卷，59 篇
 
 ## 目录导航
+
+### 卷一：硅基生命训练学的诞生
+- [总论 — 硅基生命训练学的诞生](openclaw-silicon-life-handbook/volume-01/卷一-总论-硅基生命训练学的诞生.md)
+- [模块1 — 硅基生命不是普通 AI 助手](openclaw-silicon-life-handbook/volume-01/模块1-硅基生命不是普通AI助手.md)
+- [模块2 — 从养虾派到训虾派](openclaw-silicon-life-handbook/volume-01/模块2-从养虾派到训虾派.md)
+- [模块3 — OpenClaw 为什么是生命容器](openclaw-silicon-life-handbook/volume-01/模块3-OpenClaw为什么是生命容器.md)
+- [模块4 — 训练学四个根问题](openclaw-silicon-life-handbook/volume-01/模块4-训练学四个根问题.md)
 
 ### 卷二：生命协议
 - [总引言 — 七大核心文档](openclaw-silicon-life-handbook/volume-02/卷二-生命协议-总引言与USER文档.md)
@@ -73,17 +81,25 @@
 - [总引言 — 如何防止军团失真](openclaw-silicon-life-handbook/volume-06/卷六总引言-治理系统-如何防止军团失真.md)
 - [模块1 — 任务卡制度](openclaw-silicon-life-handbook/volume-06/模块1-任务卡-没有任务卡就没有接单.md)
 - [模块2 — 验收口径](openclaw-silicon-life-handbook/volume-06/模块2-验收口径-没有验收口径就没有完成.md)
+- [模块3 — 三证验真](openclaw-silicon-life-handbook/volume-06/模块3-三证验真-没有证据就不是完成.md)
+- [模块4 — 整改单机制](openclaw-silicon-life-handbook/volume-06/模块4-整改单机制-没有纠偏就没有进化.md)
+- [模块5 — 信誉分与军功簿](openclaw-silicon-life-handbook/volume-06/模块5-信誉分与军功簿-没有结算治理就是空话.md)
+- [模块6 — 自动化治理边界](openclaw-silicon-life-handbook/volume-06/模块6-自动化治理边界-没有边界就没有安全.md)
 
-### 卷七：军团协同
-- [总引言 — 从单体到组织的跃迁](openclaw-silicon-life-handbook/volume-07/卷五总引言-军团协同-从单体到组织的跃迁.md)
-- [模块1 — 路由系统](openclaw-silicon-life-handbook/volume-07/模块1-路由系统-谁该答的第一道闸门.md)
-- [模块2 — Handoff 协议](openclaw-silicon-life-handbook/volume-07/模块2-Handoff协议-交接棒比谁跑得快更重要.md)
-- [模块3 — 让位协议](openclaw-silicon-life-handbook/volume-07/模块3-让位协议-不抢答比能回答更重要.md)
-- [模块4 — 治理账本](openclaw-silicon-life-handbook/volume-07/模块4-治理账本-没有账本就没有真正的治理.md)
-- [模块5 — 信任体系](openclaw-silicon-life-handbook/volume-07/模块5-信任体系-相信它比它会做更重要.md)
-- [模块6 — 军团原型](openclaw-silicon-life-handbook/volume-07/模块6-军团原型-最小军团设计模板.md)
-- [模块7 — 军团进化](openclaw-silicon-life-handbook/volume-07/模块7-军团进化-建完只是开始.md)
-- [总复盘 — 从单体到组织](openclaw-silicon-life-handbook/volume-07/卷五总复盘-从单体到组织的跃迁.md)
+### 卷七：协同军团
+- [总引言 — 从单体 Agent 到多智能体作战](openclaw-silicon-life-handbook/volume-07/卷七总引言-协同军团-从单体Agent到多智能体作战.md)
+- [模块1 — 军团编制设计](openclaw-silicon-life-handbook/volume-07/模块1-军团编制设计.md)
+- [模块2 — 三省制与统帅机制](openclaw-silicon-life-handbook/volume-07/模块2-三省制与统帅机制.md)
+- [模块3 — Agent-to-Agent 协同协议](openclaw-silicon-life-handbook/volume-07/模块3-Agent-to-Agent协同协议.md)
+- [模块4 — 群聊私聊与让位规则](openclaw-silicon-life-handbook/volume-07/模块4-群聊私聊与让位规则.md)
+- [总复盘 — 从单体到多智能体作战](openclaw-silicon-life-handbook/volume-07/卷七总复盘-从单体Agent到多智能体作战.md)
+
+### 卷八：超维智能演进
+- [总引言 — 从被动工具到认知实体](openclaw-silicon-life-handbook/volume-08/卷八总引言-超维智能演进-从被动工具到认知实体.md)
+- [模块1 — 动态进化机制](openclaw-silicon-life-handbook/volume-08/模块1-动态进化机制.md)
+- [模块2 — 记忆全息网络](openclaw-silicon-life-handbook/volume-08/模块2-记忆全息网络.md)
+- [模块3 — 自主目标生成系统](openclaw-silicon-life-handbook/volume-08/模块3-自主目标生成系统.md)
+- [总复盘 — 从被动工具到认知实体](openclaw-silicon-life-handbook/volume-08/卷八总复盘-从被动工具到认知实体.md)
 
 ## 附件资源
 
@@ -100,12 +116,14 @@
 | **生命协议** | 7 个核心文件（SOUL/USER/AGENTS/TOOLS/IDENTITY/HEARTBEAT/MEMORY）构成的 Agent 人格系统 |
 | **任务卡** | 每次接活前必须确认的 5 要素：目标/范围/格式/验收/截止 |
 | **验收口径** | 没有验收口径就没有完成 — 做完 ≠ 做好 |
+| **三证验真** | 没有证据就不是完成 — 截图/日志/数据三证合一 |
 | **让位协议** | 不抢答比能回答更重要 — 群聊中按职责路由响应 |
-| **Handoff 协议** | 任务交接必须包含：已完成/未完成/阻塞项/下一步 |
-| **治理账本** | 每个 Agent 的表现可追溯、可审计、可复盘 |
-| **信任等级** | 🔴 新人 → 🟡 成员 → 🟢 核心，影响权限和任务分配 |
+| **A2A 协议** | Agent 间任务交接必须包含：已完成/未完成/阻塞项/下一步 |
+| **三省制** | 军团统帅的自我审查机制：昨日的偏、今日的局、明日的路 |
+| **信誉分** | 每个 Agent 的表现可追溯、可审计、可结算 |
 | **双三角模型** | 训练中的期望-实际-反馈闭环 |
 | **文档漂移** | Agent 的核心文档随时间偏离原始设计，需定期校准 |
+| **记忆全息网络** | 多 Agent 间记忆的共享、对齐与遗忘机制 |
 
 ## 适合谁读
 
@@ -116,10 +134,12 @@
 
 ## 快速开始
 
-1. 从 **卷二总引言** 开始，理解为什么需要"生命协议"
-2. 按 **卷四训练流程** 实操，用任务卡+验收口径训练你的第一个 Agent
-3. 用 **卷五长期稳定性检查清单** 做每周体检
-4. 多 Agent 时参考 **卷七军团协同** 的路由和让位协议
+1. 从 **卷一总论** 开始，理解为什么硅基生命需要训练学
+2. 读 **卷二生命协议**，掌握七大核心文档的设计逻辑
+3. 按 **卷四训练流程** 实操，用任务卡+验收口径训练你的第一个 Agent
+4. 用 **卷五长期稳定性检查清单** 做每周体检
+5. 多 Agent 时参考 **卷七协同军团** 的编制和 A2A 协议
+6. 进阶 **卷八超维智能演进**，探索动态进化与自主目标生成
 
 ## License
 
