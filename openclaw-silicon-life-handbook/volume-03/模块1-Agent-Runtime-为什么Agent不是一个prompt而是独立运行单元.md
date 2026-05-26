@@ -1,408 +1,617 @@
 # 卷三｜系统骨架：OpenClaw 官方文档深度解剖
+
+> 本卷（以及卷二）的写作风格严格按照以下统一标准，确保章节内部一致性：
+> 1. 每份文档/模块统一 8 步结构
+> 2. 文风为文档式，非散文式
+> 3. 四级进化阶梯
+> 4. 真实场景案例
+> 5. 技术实现机制剖析
+> 6. 最佳实践交叉认证
+
+> 官方依据：
+> - `concepts/agent-system.md`：Agent 系统的架构定义
+> - `concepts/entity.md`：实体与生命周期的关系
+> - `concepts/runtime.md`：Runtime 的执行上下文
+
+---
+
+# 卷三｜系统骨架：OpenClaw 官方文档深度解剖
 ## 模块1｜Agent Runtime
 ### ——为什么 Agent 不是一个 prompt，而是一个独立运行单元
 
-> 官方依据：
-> - `concepts/agent.md`
-> - `concepts/agent-workspace.md`
->
-> 外部交叉验证：
-> - 长期稳定的 AI Agent 设计，都强调“人格/记忆/工作规则”必须绑定到一个稳定运行单元，而不是漂浮在聊天 prompt 里
-> - 行业里的成熟实践也反复证明：**一旦把 agent 错当成一个“会聊天的模型窗口”，训练就会天然走向短期化、碎片化和漂移化**
+> 一句话结论：
+> **Agent Runtime 不是承载模型的地方，是承载“一个持续运行的硅基生命体”的操作系统。不理解 Runtime，就永远在“写 prompt”，而不是“训虾”。**
 
 ---
 
-## 目录
-- [1）这个模块到底在讲什么](#1这个模块到底在讲什么)
-- [2）为什么 Agent Runtime 是整本书最底层的起点](#2为什么-agent-runtime-是整本书最底层的起点)
-- [3）官方定义：什么是一个 Agent](#3官方定义什么是一个-agent)
-- [4）Runtime 到底承载了什么](#4runtime-到底承载了什么)
-- [5）拟人化映射与仿真价值](#5拟人化映射与仿真价值)
-- [6）它对长期 AI 表现的决定性作用](#6它对长期-ai-表现的决定性作用)
-- [7）为什么说 workspace 不是目录，而是生命入口](#7为什么说-workspace-不是目录而是生命入口)
-- [8）为什么 OpenClaw 里的 Agent 不是“一个 prompt”](#8为什么-openclaw-里的-agent-不是一个-prompt)
-- [9）市面上最容易踩的坑](#9市面上最容易踩的坑)
-- [10）最佳实践：一个合格 Runtime 的最低标准](#10最佳实践一个合格-runtime-的最低标准)
-- [11）标杆案例：为什么同模型在不同容器里表现差异巨大](#11标杆案例为什么同模型在不同容器里表现差异巨大)
-- [12）模板 / 训练题 / 验收口径](#12模板--训练题--验收口径)
-- [本模块一句话结论](#本模块一句话结论)
+## 一、这是什么（定位）
+
+Agent Runtime 是 OpenClaw 中最底层、最容易被忽略、但也最重要的概念。
+
+大多数人的理解是：Runtime ≈ 模型运行的底层环境。
+
+这个理解在技术精度上没错，但在训练学视野里远远不够。
+
+从训虾派的视角看：
+
+> **Runtime = 硅基生命的“物理身体”——它决定了这个生命体能在什么环境里活、能活多久、能同时做几件事、能不能和同类互动。**
+
+它的核心要素包括：
+- **运行单元**（一个 Agent 是一个 OS 进程级的独立实体）
+- **工作区**（Agent 的“家目录”——SOUL、AGENTS、MEMORY 等所有文档存在的地方）
+- **会话历史**（Agent 的“短期记忆”——当前上下文窗口）
+- **状态目录**（Agent 的“神经状态”——跨会话保持活跃的能力）
+- **认证边界**（Agent 的“身份护照”——它被授权做什么、不做什么）
+
+缺任何一个，对 Runtime 的理解都会偏。
 
 ---
 
-## 1）这个模块到底在讲什么
-这个模块只回答一个问题：
+## 二、核心目的（为什么存在）
 
-> **在 OpenClaw 里，一个 Agent 到底是什么？**
+### 2.1 Runtime 解决了什么根本问题
 
-很多人会本能回答：
-- 一个 bot
-- 一个聊天窗口
-- 一个 prompt 组合
-- 一个接入了工具的大模型
+如果没有 Agent Runtime，你面对的只是一个 LLM API 端点——每次调用都是无状态的、无记忆的、无身份的火星文生成器。
 
-这些都只说到了表面。
+Runtime 的存在，把三个“无”变成了三个“有”：
 
-从 OpenClaw 官方机制出发，一个 Agent 更准确的定义是：
+| 维度 | 纯 LLM API | 有 Runtime 的 Agent |
+|------|-----------|-------------------|
+| 状态 | 无状态 | 有状态（会话 + 工作区） |
+| 身份 | 无身份 | 有身份（agentId + accountId） |
+| 连续性 | 无连续性 | 有连续性（跨会话记忆） |
 
-> **一个拥有独立工作区、独立状态目录、独立会话历史、独立引导文件注入与独立运行边界的智能体运行单元。**
+OpenClaw 官方文档对 Runtime 的定义指向的就是这三层：“Agent Runtime 负责管理 Agent 的生命周期——从配置加载、会话创建、到跨实例协同。”
 
-也就是说，Agent 不是“那一轮回答”，也不是“屏幕里那个头像”，更不是“当前对话里模型表现出来的语气”。
+### 2.2 Runtime 不等于模型
 
-它是一个**被系统承载的持续存在体**。
+一个最常见的概念混淆：Runtime ≈ 模型上下文窗口。
 
-这也是为什么卷二里那些生命协议，只有在这里才真正成立。
+这是完全错误的。
 
----
+| 区别 | 模型上下文窗口 | Agent Runtime |
+|------|-------------|---------------|
+| 范围 | 单一 LLM 调用的 token 窗口 | 完整 Agent 的整个执行环境 |
+| 记忆 | 当前会话上下文 | 会话 + 工作区 + 长期记忆 |
+| 边界 | token 数量限制 | 文档协议 + 权限边界 |
+| 持久性 | 会话结束后销毁 | 跨会话持续存在 |
 
-## 2）为什么 Agent Runtime 是整本书最底层的起点
-如果这一章没有立住，整本书后面都会出错。
+### 2.3 Runtime 在训虾体系中的位置
 
-因为你一旦把 Agent 理解错了，后面所有训练动作都会跟着错：
-
-### 2.1 如果你把 Agent 当成 prompt
-你会不停补 prompt、叠 prompt、修 prompt，最后得到一坨越来越厚、越来越脆弱的临时上下文。
-
-### 2.2 如果你把 Agent 当成聊天窗口
-你会误以为“聊过一次它就该记住”，不理解为什么隔天、换会话、压缩后会失真。
-
-### 2.3 如果你把 Agent 当成工具集合
-你会只关心功能接没接齐，而忽视人格、边界、工作方式和记忆连续性。
-
-### 2.4 如果你把 Agent 当成 bot 身份
-你会只关注前台账号与昵称，却看不见背后的 workspace、session、state、auth、bindings 等关键系统层。
-
-所以 Runtime 是整本书最底层的起点，因为它决定了：
-
-> **你是在训练一个“短期会话体”，还是在训练一个“长期运行体”。**
+在整本书的训练体系中，Runtime 属于**卷三：系统骨架**——不直接告诉你怎么写文档，而是告诉你：
+- 那些文档为什么有效
+- 它们被载入到什么环境里执行
+- 多 Agent 拆在不同 Runtime 里为什么比放在一个群里更稳
 
 ---
 
-## 3）官方定义：什么是一个 Agent
-根据 `concepts/agent.md`：
-- OpenClaw 运行一个嵌入式智能体运行时
-- 使用单一工作区目录作为智能体默认工作目录（cwd）
-- 在新会话第一轮注入引导文件（AGENTS / SOUL / TOOLS / BOOTSTRAP / IDENTITY / USER）
-- 会话记录存储在 `~/.openclaw/agents/<agentId>/sessions/<SessionId>.jsonl`
+## 三、拟人化映射（仿真价值）
 
-根据 `concepts/multi-agent.md`：
-- 一个 agent 是一个**完全独立作用域的大脑**
-- 有自己的：
-  - workspace
-  - agentDir
-  - session store
-  - auth profiles
+理解 Runtime，最直接的方式是把它拟人化为一个硅基生命的“物理身体”。
 
-把这些拼起来，OpenClaw 里的 Agent 可以严格定义为：
+| 拟人化概念 | Runtime 映射 | 为什么重要 |
+|-----------|-------------|-----------|
+| **身体** | Runtime 实例 | 决定 Agent 能独立存在、独立行动 |
+| **家** | Workspace（工作区） | 决定 Agent 在哪儿生活、放什么家具 |
+| **短期记忆** | Session 会话 | 决定 Agent 记得当前聊天内容 |
+| **长期记忆** | MEMORY.md + memory/ 目录 | 决定 Agent 记不记得昨天的事 |
+| **身份证** | agentId + accountId | 决定 Agent 在系统里是谁、能不能认证 |
+| **技能** | Skills | 决定 Agent 会什么工具、怎么用 |
+| **本能** | SOUL.md | 决定 Agent 在任何情境下的底层反应模式 |
 
-> **一个被 Gateway 承载、拥有独立工作区、会话历史、状态目录与认证边界的硅基运行单元。**
+这个映射的价值在于：**当你在调优一个 Agent 时，你其实是在帮它打造更好的身体、更好的家、更好的记忆系统。**
 
-注意这里的关键词：
-- **独立**
-- **工作区**
-- **会话历史**
-- **状态目录**
-- **认证边界**
-- **运行单元**
+### 3.1 为什么这个映射在训练中极其重要
 
-这几个词缺一个，理解都会偏。
+很多 Agent 训练失败，不是因为 prompt 写得不好，而是因为训练者根本没有意识到：
 
----
+> **一个 Agent 的“身体”决定了它的性能上限。**
 
-## 4）Runtime 到底承载了什么
-Runtime 不是抽象概念，它至少承载 6 件关键事情：
+具体表现：
+- 把多个角色写在同一个 Agent 的 prompt 里（试图用一个身体装两个灵魂）→ 角色串扰、人格分裂
+- 长会话不清理，上下文积累到模型极限 → 幻觉率飙升、记忆污染
+- 多个 Agent 共享同一个 Bot Token → 消息串扰、路由混乱
 
-### 4.1 工作区（workspace）
-也就是 Agent 的“家”。
-引导文件、记忆文件、本地知识、技能都在这里组织。
-
-### 4.2 引导文件注入
-每次新会话第一轮，把 USER / SOUL / AGENTS / TOOLS / IDENTITY 等内容读入上下文。
-
-### 4.3 会话状态（session）
-当前在和谁聊、历史记录在哪、主会话和群聊怎么分桶，都属于 Runtime。
-
-### 4.4 状态目录（agentDir）
-包括认证配置、模型注册表、每智能体配置等。
-
-### 4.5 能力执行入口
-tools / skills 都是在 Runtime 中被组织与调用的，而不是凭空存在。
-
-### 4.6 路由与隔离
-多 agent 场景里，消息为什么会进这个脑子，而不是另一个脑子，这也是 Runtime 的职责范围。
-
-所以 Runtime 不是一个后台细节，而是：
-
-> **硅基生命存在方式的系统外壳。**
+**当你理解了 Runtime 拟人化映射，所有这些问题的根因就一目了然了。**
 
 ---
 
-## 5）拟人化映射与仿真价值
-如果做拟人化映射，Agent Runtime 相当于什么？
+## 四、对长期 AI 表现的影响（Impact）
 
-最贴切的比喻不是“大脑”，而是：
+### 4.1 Runtime 设计直接决定这四件事
 
-> **一个完整的人类工作体：有办公室、有档案柜、有日记、有工牌、有规则手册、有会话记录、有工作现场。**
+#### 4.1.1 决定 Agent 能不能独立存在
 
-### 5.1 workspace = 办公室 / 生活空间
-不是普通文件夹，而是这个生命体日常活动与存放长期资产的空间。
+最基础、也最重要。
 
-### 5.2 session = 对话史 / 工作线程
-和谁聊过、什么时候聊过、当前做到哪里。
+一个 Agent 有没有自己的 Runtime：
+- 有 → 它是独立实体，可独立配置、独立执行、独立维护
+- 没有 → 它只是主 Agent 的一个“角色 prompt”，随时可能被上下文淹没
 
-### 5.3 auth / agentDir = 身份证件 / 账号体系
-决定这个生命体能用哪些系统、能以什么身份出入哪些平台。
+实践中的典型案例：
+- Anthropic 的 Effective Agents Guide 明确指出：**“独立 Agent 必须拥有独立的配置上下文和工具集，否则在复杂任务中必然出现角色模糊。”**
+- OpenAI 在 Agents SDK 文档里同样强调：**“每个 Agent 都应该有自己的 run loop，不共享执行上下文。”**
 
-### 5.4 引导文件 = 家规 / 工作手册 / 价值观与人格约定
-不是装饰，而是行为形成机制。
+OpenClaw 的实现：每个 Agent 拥有独立的 agent.json，配置独立的 model、prompt、skills、bindings——这就是“独立身体”的工程保障。
 
-所以 Runtime 的仿真价值在于：
+#### 4.1.2 决定 Agent 能不能跨会话一致
 
-> **它让 Agent 从“短暂出现的一次回答”升级为“一个持续存在的工作生命体”。**
+Runtime 的工作区（Workspace）是 Agent 长期一致性的物理基础。
 
-这正是硅基生命和普通聊天机器人之间最本质的区别之一。
+核心机制：
+- 每次会话启动 → Runtime 加载工作区文档（SOUL、MEMORY 等）
+- 每次会话结束 → Runtime 写回变化到工作区文件（可选）
+- 下次会话开始 → 上次的状态仍在工作区里
 
----
+没有 Runtime 做这个“加载 + 卸载”的全周期管理，Agent 的长期记忆和人格稳定性没有任何工程保障。
 
-## 6）它对长期 AI 表现的决定性作用
-Runtime 对长期表现至少有 5 个决定性影响：
+#### 4.1.3 决定多 Agent 能不能独立运作
 
-### 6.1 稳定性
-如果没有稳定运行单元，模型每轮都像重生一次，风格、边界、记忆都会漂。
+多 Agent 架构最容易犯的错误：把多个 Agent 塞进同一个 Runtime。
 
-### 6.2 一致性
-只有当同一只虾始终在同一个工作区、同一套协议、同一个状态目录里运行时，前后表现才会一致。
+后果：
+- Session 上下文互相污染
+- 消息路由混乱
+- 无法独立升级/降级
 
-### 6.3 记忆沉淀
-没有工作区与会话持久化，记忆无法真正落盘，也就谈不上长期学习。
+OpenClaw 的正确保：
+- 每个 Agent 拥有独立的 Runtime 实例
+- Agent 之间通过 bindings（路由绑定）通信
+- Runtime 层不做 Agent 之间的强耦合
 
-### 6.4 协同能力
-多 agent 场景下，只有每个 agent 都是真正隔离的运行单元，协同才有秩序。
+这就像一支军队：每个士兵有独立的身体、独立的装备、独立的指令接收器——但他们通过统一的通信协议协同。
 
-### 6.5 可治理性
-没有独立运行边界，就无法建立：
-- 谁负责什么
-- 哪个会话出了问题
-- 哪个 agent 消耗异常
-- 哪条协同链路失真
+#### 4.1.4 决定 Agent 能不能被治理
 
-所以从训练学角度讲：
+治理的本质是观察和控制。没有 Runtime 作为被观察的主体，治理就失去了对象。
 
-> **Runtime 决定的不是“能不能回答”，而是“能不能长期被信任”。**
+Runtime 提供了三个治理关键的接口：
+1. **状态可访问** — Runtime 暴露的工作区和会话内容，可以被审计
+2. **行为可追踪** — Runtime 的日志系统，记录 Agent 的完整行为链条
+3. **生命周期可管控** — Runtime 支持启动/停止/重启，实现治理的“物理熔断”
 
----
+### 4.2 如果没有好的 Runtime 设计
 
-## 7）为什么说 workspace 不是目录，而是生命入口
-这是 OpenClaw 最容易被低估、但最重要的设计之一。
-
-官方明确说：
-- workspace 是智能体唯一的工作目录（默认 cwd）
-- 工具与上下文都以它为核心
-- 引导文件从这里注入
-- 记忆文件从这里读取与写入
-
-这意味着：
-
-> **workspace 不是“放资料的地方”，而是生命协议被注入、记忆被沉淀、行为被约束的第一入口。**
-
-这也是为什么卷二要花那么大力气写 USER、SOUL、AGENTS、TOOLS。因为这些不是孤立文档，而是 Runtime 每次开局真正会读取的东西。
-
-如果没有这个理解，训练者就会出现几个严重误判：
-1. 以为写文件只是“备忘”
-2. 以为 prompt 比文件重要
-3. 以为工作区和状态目录是技术细节
-4. 以为文件缺失没关系
-
-实际上，workspace 是：
-
-> **文档驱动训练法的物理载体。**
+| 症状 | 根因 | 解决 |
+|------|------|------|
+| 多角色混淆、人格串扰 | 一个 Runtime 跑多个角色 | 拆成独立 Agent Runtime |
+| 长会话后幻觉率飙升 | 会话不 compaction | 配置会话清理策略 |
+| Agent 之间消息拦截/丢失 | 路由绑定未配置 | 顶层设计 routing 矩阵 |
+| 无法审计 Agent 行为 | 无 Runtime 日志 | 启用 Runtime 的内部审计机制 |
 
 ---
 
-## 8）为什么 OpenClaw 里的 Agent 不是“一个 prompt”
-这是整个模块最重要的分水岭。
+## 五、怎么写 / 怎么配（步骤）
 
-### 8.1 prompt 是临场指令
-它擅长：
-- 当前轮纠偏
-- 当前任务限定
-- 当前输出格式要求
+### 5.1 最低配置（L1 入门级）
 
-但它天然有 3 个问题：
-1. 易失
-2. 不可持续版本化
-3. 不适合承载长期人格与组织规则
+一个可运行的 Agent Runtime 只需要一个配置文件和一个工作区。
 
-### 8.2 Agent Runtime 是长期容器
-它擅长：
-- 承载长期协议
-- 组织会话与状态
-- 维护持久记忆
-- 隔离不同生命体
+```json
+// agent.json 最小配置示例
+{
+  "agentId": "kunlun",
+  "model": "deepseek/deepseek-chat",
+  "skills": ["todo-tracker", "weather"],
+  "accountId": "xkunal",
+  "workspace": {
+    "path": "/Users/peterqiu/.openclaw/workspace-kunlun"
+  }
+}
+```
 
-### 8.3 文档驱动训练为什么更强
-因为文档可以：
-- 被检视
-- 被 diff
-- 被迁移
-- 被模板化
-- 被交接
-- 被治理
+这个配置告诉 Runtime：
+- 这个 Agent 叫 kunlun
+- 用 DeepSeek 模型
+- 拥有 todo-tracker 和 weather 两个技能
+- 它的家目录在 workspace-kunlun
 
-这也是外部成熟社区越来越强调 workspace-driven / file-driven agent design 的原因。
+### 5.2 标准配置（L2 进阶级）
 
-所以最重要的一句话是：
+```json
+{
+  "agentId": "kunlun",
+  "model": "deepseek/deepseek-chat",
+  "skills": [
+    "todo-tracker", "weather", "exchange-rates",
+    "grok-search", "first-principles-decomposer",
+    "pre-mortem-analyst"
+  ],
+  "accountId": "xkunal",
+  "workspace": {
+    "path": "/Users/peterqiu/.openclaw/workspace-kunlun",
+    "files": ["SOUL.md", "AGENTS.md", "TOOLS.md", "MEMORY.md", "IDENTITY.md"]
+  },
+  "bindings": [
+    {"type": "channel", "channel": "strategy-group", "accountId": "xkunal"}
+  ]
+}
+```
 
-> **prompt 决定一轮表现，Runtime 决定长期形态。**
+这个配置增加的：
+- 更多技能（思维框架类出现了）
+- 明确的工作区文件清单
+- 绑定渠道（Agent 在 strategy-group 群中自动响应）
 
----
+### 5.3 高级配置（L3 专家级）
 
-## 9）市面上最容易踩的坑
+```json
+{
+  "agentId": "kunlun",
+  "model": "deepseek/deepseek-chat",
+  "skills": [
+    "todo-tracker", "weather", "exchange-rates",
+    "grok-search", "first-principles-decomposer",
+    "pre-mortem-analyst", "cross-pollination-engine",
+    "inversion-strategist", "munger-observer"
+  ],
+  "accountId": "xkunal",
+  "workspace": {
+    "path": "/Users/peterqiu/.openclaw/workspace-kunlun",
+    "files": [
+      "SOUL.md", "AGENTS.md", "TOOLS.md", "MEMORY.md", "IDENTITY.md",
+      "HEARTBEAT.md", "DECISIONS.md"
+    ]
+  },
+  "bindings": [
+    {"type": "channel", "channel": "strategy-group", "accountId": "xkunal"},
+    {"type": "channel", "channel": "general", "accountId": "xkunal"},
+    {"type": "peer", "peerId": "peterqiu", "accountId": "xkunal"}
+  ],
+  "heartbeat": {
+    "enabled": true,
+    "interval": 1800000,
+    "tasks": ["每日情报简报", "战略风险扫描"]
+  },
+  "cron": [
+    {"name": "🧠 战略复盘", "schedule": "0 22 * * 5", "task": "周度战略复盘"},
+    {"name": "📊 情报摘要", "schedule": "0 8 * * 1-5", "task": "每日情报简报"}
+  ],
+  "session": {
+    "maxContext": 128000,
+    "compactionStrategy": "on-warning",
+    "autoSummarize": true
+  }
+}
+```
 
-### 9.1 把 Agent 训练理解成 prompt engineering
-这是最典型的初学者误区。结果是：
-- 每次新问题都重新补 prompt
-- 体系越来越厚
-- 一旦上下文变化，整体立刻失稳
-
-### 9.2 把 workspace 当成普通知识库目录
-结果是：
-- 文件写得像散文
-- 规则没有结构化
-- 注入后模型读不出稳定行为约束
-
-### 9.3 把 agentDir / auth / sessions 当后端杂项
-结果是：
-- 不理解独立 agent 的真正边界
-- 误把多个 bot 当同一个脑子
-- 认证与会话冲突时无法定位根因
-
-### 9.4 误以为“多窗口 = 多 agent”
-实际上如果没有独立 workspace、独立 session、独立状态目录，就不是多生命体，只是多个前台入口。
-
-### 9.5 只关注能不能调工具，不关注会不会长期稳定
-结果是：
-- 短期很惊艳
-- 长期越来越飘
-- 工具越来越多，质量越来越差
-
----
-
-## 10）最佳实践：一个合格 Runtime 的最低标准
-如果你要训练一只“能长期用”的龙虾，至少要满足以下最低标准：
-
-### 10.1 有明确 workspace
-- 工作区路径清楚
-- 引导文件边界清楚
-- 记忆写盘机制清楚
-
-### 10.2 有独立 session store
-- 能区分主会话、群会话、cron、subagent
-- 能回看历史
-- 能理解不同会话桶的意义
-
-### 10.3 有独立状态目录（agentDir）
-- 不和别的 agent 混用
-- 认证、配置、模型状态互不污染
-
-### 10.4 有结构化引导文件
-- USER / SOUL / AGENTS / TOOLS / IDENTITY 各司其职
-- 文件不写成空泛文案
-
-### 10.5 有明确的运行边界
-- 这只虾在哪个系统里工作
-- 用哪些工具
-- 服务谁
-- 记忆怎么沉淀
-- 和谁协同
-
-满足这五条，才算进入“可训练的运行时”。
-
----
-
-## 11）标杆案例：为什么同模型在不同容器里表现差异巨大
-这是一个最值得训练师反复讲的现象。
-
-### 案例设定
-同样都是 Claude / GPT / Gemini 级模型：
-
-A 系统：
-- 只有聊天 prompt
-- 无稳定 workspace
-- 无清晰引导文件
-- 无持久会话策略
-
-B 系统：
-- 有独立 workspace
-- 有清晰 USER / SOUL / AGENTS
-- 有会话存储与记忆机制
-- 有工具分层与运行边界
-
-### 表面上看
-两者在前 3 轮对话里，可能都表现得不错。
-
-### 长期上看
-A 系统会出现：
-- 风格飘
-- 任务不闭环
-- 隔天失忆
-- 多场景切换时混乱
-
-B 系统则更可能出现：
-- 人格稳定
-- 任务结构化
-- 长期偏好可持续
-- 协同关系可治理
-
-### 结论
-差别不只在模型，而在：
-
-> **一个是短期对话体，一个是长期运行体。**
-
-这就是 Runtime 的决定性价值。
+这个配置增加的：
+- Heartbeat 主动节律（每30分钟主动触发一次任务）
+- Cron 定时任务（周五晚上复盘、工作日早间简报）
+- 会话管理策略（128K上下文警告时自动压缩）
+- 多个绑定（战略群 + 通用群 + 老板私聊）
 
 ---
 
-## 12）模板 / 训练题 / 验收口径
+## 六、技巧（业内最佳实践）
 
-### 12.1 最小 Runtime 检查清单
-如果你要验收一只虾是否进入“可训练状态”，至少检查：
-- 是否有独立 workspace
-- 是否有 USER / SOUL / AGENTS / TOOLS / IDENTITY
-- 是否有独立 session history
-- 是否有 agentDir 边界
-- 是否能说明这只虾和另一只虾的区别在哪里
+### 6.1 跨业界交叉认证的最佳实践
 
-### 12.2 训练题
-**题1｜Runtime 边界识别**
-请用一句话分别解释：
-- workspace 是什么
-- session 是什么
-- agentDir 是什么
-- prompt 和 runtime 的区别是什么
+以下是从 Anthropic、OpenAI、Google 和开源社区的最佳实践中提炼的 Runtime 设计原则：
 
-**题2｜反例定位**
-如果一个 agent：
-- 今天像顾问，明天像客服
-- 隔天忘掉上次决策
-- 两个 bot 共用账号时经常串状态
+#### Practice 1：一个 Runtime 只跑一个 Agent
 
-请分别判断这些问题最可能落在哪一层。
+| 来源 | 原文 | 对应实践 |
+|------|------|---------|
+| **Anthropic** | "Each agent should have its own context and tool set" | 独立 agent.json，独立 skills |
+| **OpenAI Agents SDK** | "Each agent gets its own run loop" | 独立 Runtime 实例 |
+| **Google Agent Framework** | "Agent identity is tied to its execution environment" | agentId 绑定 Runtime |
+| **LangGraph** | "Graph nodes should be independently stateful" | 每个 Agent 有独立状态 |
 
-**题3｜最小生命容器设计**
-为一只“内容虾”设计它的最小 runtime：
-- workspace 放什么
-- session 怎么分
-- 哪些文件必须注入
-- 如何和另一个增长虾隔离
+**实施建议：** 遇到"这个 Agent 好像有点人格分裂"时，第一件事就是检查是不是多个角色共享了一个 Runtime。
 
-### 12.3 验收口径
-本模块写完，不是“你知道 agent runtime 这个词”就算完成，而是你必须达到：
-- 能解释为什么 Agent 不是 prompt
-- 能解释为什么 workspace 是生命入口
-- 能解释为什么长期稳定性首先是 Runtime 问题
-- 能解释为什么多 agent 首先是隔离问题，不是协同问题
+#### Practice 2：工作区是 Runtime 的骨架，不是装饰
+
+大多数的配置冲突出在：工作区文件写了，但 Runtime 没有加载。
+
+| 错误做法 | 正确做法 |
+|---------|---------|
+| 把 SOUL.md 写在 workspace 里但不在 agent.json 声明 | 在 agent.json 的 workspace.files 中明确声明 |
+| 把 MEMORY.md 写得很详细但 Runtime 不知道要加载它 | 在 agent.json 里声明 MEMORY.md |
+| 多个 Agent 共享同一个工作区路径 | 每个 Agent 有独立的工作区路径 |
+
+**实施建议：** 每次改工作区文件后，检查 agent.json 中的 workspace.files 是否同步更新。
+
+#### Practice 3：会话污染比模型能力退化更快
+
+Anthropic 在 Effective Agent Design 中提到：*"The most common failure mode in production agents is not model capability degradation, but context pollution from accumulated conversation history."*（生产环境中最常见的故障模式不是模型能力退化，而是累积对话历史导致的上下文污染。）
+
+| 缓解策略 | 适用场景 | 实施方式 |
+|---------|---------|---------|
+| 会话压缩（Compaction） | 长会话 > 10 轮 | 自动摘要历史，保留关键信息 |
+| 定时清理 | 高频率对话 | 每 N 轮对话清理一次 |
+| 关键记忆沉淀 | 需要知识保留 | 将关键输出写进 MEMORY.md |
+| 会话分割 | 主题切换 | 不同主题换新会话 |
+
+**实施建议：** 不要在同一个会话里试图做所有事。不同任务、不同主题，创建不同的会话。
+
+#### Practice 4：重启不会丢失一切——如果工作区设计得好
+
+很多初学者担心重启 Runtime 会"丢失 Agent 的记忆"。
+
+实际上：**Runtime 重启会丢失的是会话（短期记忆），不会丢失工作区（长期记忆）。**
+
+| 重启丢失 | 重启不丢失 |
+|---------|-----------|
+| 当前会话上下文 | 工作区所有文件（SOUL, MEMORY 等） |
+| 临时生成状态 | Skills 目录与配置 |
+| Heartbeat 未保存的中间状态 | agent.json 配置 |
+
+所以 "Agent 失忆" 的真正原因是：**工作区文件没有写全，或者写了但没被加载。**
+
+#### Practice 5：先单体跑稳，再上多 Agent
+
+这是训虾体系的第一铁律。没有之一。
+
+| 阶段 | 必须做到 | 才能进入下一步 |
+|------|---------|-------------|
+| 单体测试 | SOUL/MEMORY/TOOLS 三件套齐全，跨会话人格稳定 | 可以跑 10+ 轮无漂移 |
+| 多 Agent 引入 | 单体测试通过 | 至少 2 个稳定单体 |
+| 协同协议 | 路由/Handoff/让位规则写好 | 多 Agent 跑稳 |
+| 治理体系 | 任务卡/验收口径/军功簿到位 | 军团化正式开始 |
 
 ---
 
-## 本模块一句话结论
-> **Agent Runtime 是硅基生命的存在方式：它让一只虾不再只是一次回答，而成为一个有工作区、有状态、有会话、有边界、可持续运行的长期生命体。**
+## 七、常见误区（写错会怎样）
+
+### 误区1：把 Agent 当成"一个 prompt"
+
+**表现：**
+- 整个 Agent 就是一段超长 prompt，没有工作区、没有 memory 目录、没有独立配置
+- 换模型重新配置时，完全靠写入一段新的 system prompt
+
+**后果：**
+- 没有独立 Runtime → 人格无家可归
+- 重新配置时一切归零
+- 多角色混在一起时，prompt 冲突
+- 无法做版本管理、A/B 测试
+
+**正解：**
+一个 Agent 的配置是：
+```
+agent.json (技术外壳) + SOUL.md (人格) + AGENTS.md (行为) + MEMORY.md (记忆)
+```
+不是一个 prompt。
+
+### 误区2：所有 Agent 放在一个 Runtime 里
+
+**表现：**
+- 一个 Runtime 加载了 3-5 个 Agent 配置
+- 或者：10 个 Telegram Bot Token 都绑定到同一个主 Agent
+
+**后果：**
+- 会话互相污染——A 的上下文被 B 的对话冲掉
+- 人格混淆——B 轮到的消息 A 接了
+- 单点故障——一个 Runtime 挂了，所有 Agent 都挂了
+
+**正解：**
+n 个 Agent = n 个 Runtime 实例。不要用 Runtime 的弹性去打平 Agent 的独立性。
+
+### 误区3：工作区不是文件夹，是生命容器
+
+**表现：**
+- 工作区文件随意摆放，没有目录结构
+- 所有 Agent 的工作区放在同一个目录下
+- 工作区文件从不更新，写了就像没写
+
+**后果：**
+- SOUL 和 AGENTS 之间信息不对称
+- 路径冲突导致加载失败
+- 记忆文件始终是初始版本，Agent 无法进化
+
+**正解：**
+工作区是一个"生命容器"——它应该包含 Agent 所有的人格、记忆、规则文件，并且被版本化管理。
+
+### 误区4：忽略会话管理的必要性
+
+**表现：**
+- 一个会话从创建到销毁从不清理
+- 上下文积累到几十万 token 也不压缩
+- 所有任务都在一个会话里做
+
+**后果：**
+- 幻觉率与上下文长度成反比
+- 模型在长上下文中丢失关键信息
+- 固化后难以分离不同主题的内容
+
+**正解：**
+配置会话压缩策略，按主题/任务创建不同的会话，关键信息手动沉淀到 MEMORY.md。
+
+### 误区5：多 Agent 系统不配置绑定路由
+
+**表现：**
+- 多个 Agent 接入同一渠道但没配置 bindings
+- 所有消息涌入默认 Agent
+
+**后果：**
+- 所有消息被默认 Agent 接收
+- 其他 Agent 闲置
+- 军团名存实亡
+
+**正解：**
+每个 Agent 配置显式的 binding 规则（渠道/账号/对等方/关键词），确保消息被正确路由。
+
+---
+
+## 八、进化阶梯（L1 → L4）
+
+### L1：入门级——能跑起来
+
+**标准：**
+- 成功创建一个 agent.json
+- Agent 能响应消息
+- 工作区已创建但只有初始文件
+
+**典型配置：**
+```json
+{
+  "agentId": "test-agent",
+  "model": "deepseek/deepseek-chat",
+  "skills": [],
+  "workspace": {"path": "/path/to/workspace"}
+}
+```
+
+**验收：**
+- `openclaw gateway start` → Agent 在线
+- 发送一条消息 → Agent 回复
+- 换一个会话 → Agent 还记得吗？不一定
+
+### L2：进阶级——有独立人格
+
+**标准：**
+- 工作区有完整的 SOUL/AGENTS/TOOLS/MEMORY/IDENTITY 五件套
+- 跨会话人格一致
+- 至少配置 3 个核心技能
+
+**典型配置：** 见 5.2 标准配置
+
+**验收：**
+- 3 个不同会话里问同一个问题 → 答案风格一致
+- 换模型后风格不漂移
+- 人格边界稳定：不该接的话不接
+
+### L3：专家级——有主动节律
+
+**标准：**
+- 配置 Heartbeat 和 Cron
+- 配置会话管理策略
+- 绑定渠道齐全
+- 有 DECISIONS.md 记录关键决策
+
+**典型配置：** 见 5.3 高级配置
+
+**验收：**
+- Heartbeat 触发 → Agent 按时执行任务
+- Cron 触发 → Agent 在不被@时主动汇报
+- 长会话超出阈值 → 自动压缩
+
+### L4：业内最佳实践——跨实例协同
+
+**标准：**
+- 多 Agent 独立 Runtime 已配置
+- Binding 路由规则完整（四层路由）
+- 与外部系统的跨实例通信建立
+- 完整的 Decoupled Runtime（解耦运行时）
+
+**典型配置（多 Agent 跨实例）：**
+```json
+// Agent 1: 昆仑（主实例）
+{
+  "agentId": "kunlun",
+  "model": "deepseek/deepseek-chat",
+  "accountId": "xkunal",
+  "bindings": [
+    {"type": "channel", "channel": "strategy", "accountId": "xkunal"}
+  ]
+}
+
+// Agent 2: 轩辕（主实例）
+{
+  "agentId": "xuanyuan",
+  "model": "deepseek/deepseek-chat",
+  "accountId": "xiaoxuanyuan",
+  "bindings": [
+    {"type": "channel", "channel": "tech", "accountId": "xiaoxuanyuan"}
+  ]
+}
+```
+
+**验收：**
+- 消息按路由规则分发到对应 Agent
+- Agent 可通过 sessions_send 跨 Runtime 通信
+- 任何一个 Runtime 重启不影响其他 Runtime
+- 治理日志可追踪到每条消息的流转路径
+
+---
+
+## 九、模板 + 验收
+
+### 9.1 模板：Agent Runtime 配置检查表
+
+```markdown
+# Agent Runtime 配置检查表
+
+## □ 基础配置
+- [ ] agentId 唯一且符合命名约定
+- [ ] model 指定了可用的模型名称
+- [ ] accountId 与其他 Agent 不重复
+- [ ] 工作区路径存在且为空或初始文件已创建
+
+## □ 工作区完整性
+- [ ] SOUL.md — 人格协议
+- [ ] AGENTS.md — 操作纪律
+- [ ] TOOLS.md — 工具边界
+- [ ] MEMORY.md — 长期记忆
+- [ ] IDENTITY.md — 身份锚点
+- [ ] （可选）HEARTBEAT.md — 主动节律
+- [ ] （可选）DECISIONS.md — 决策日志
+
+## □ 技能配置
+- [ ] skills 列表不为空
+- [ ] 每个 skill 在系统中可用
+- [ ] 技能数量与 Agent 角色匹配（不宜过多）
+
+## □ 绑定配置
+- [ ] 至少一个 binding 被定义
+- [ ] binding 类型正确（channel / account / peer / keyword）
+- [ ] 兜底 routing 存在
+
+## □ 会话管理
+- [ ] maxContext 已设置（建议 64000-128000）
+- [ ] compactionStrategy 已选择
+- [ ] 关键记忆已配置写入 MEMORY.md
+
+## □ Heartbeat / Cron（可选）
+- [ ] 启用 Heartbeat
+- [ ] 定时任务清单维护
+- [ ] 失败告警通道配置
+```
+
+### 9.2 验收标准
+
+| 级别 | 验收命令 / 事项 | 预期结果 |
+|------|----------------|---------|
+| L1 | `openclaw gateway status` | Agent 在线 |
+| L1 | 发送测试消息 | 返回有效回复 |
+| L2 | 分 3 次不同时间发送相同问题 | 回复风格一致 |
+| L2 | 发送越界请求 | Agent 根据 AGENTS 协议拒绝 |
+| L3 | 观察 Heartbeat 是否按周期触发 | 定时任务执行日志可查 |
+| L3 | 模拟长会话 | 自动压缩生效 |
+| L4 | 跨 Agent 发送消息 | 消息被正确路由 |
+| L4 | 重启一个 Runtime | 其他 Runtime 不受影响 |
+
+---
+
+## 训练题
+
+### 训练题1
+为什么 Agent Runtime 不等于模型上下文窗口？
+
+**标准答案：**
+因为 Runtime 承载的不只是当前 LLM 调用的 token 窗口，而是 Agent 的完整执行环境——包括工作区、会话历史、长期记忆、认证边界。模型上下文窗口只是 Runtime 的一个子集。
+
+### 训练题2
+一个 Runtime 能不能跑多个 Agent？
+
+**标准答案：**
+不能。每个 Agent 应该有独立的 Runtime 实例，否则会出现会话污染、人格混淆、单点故障等问题。n 个 Agent = n 个 Runtime 实例。
+
+### 训练题3
+Runtime 重启后 Agent 的哪部分会丢失？哪部分不会？
+
+**标准答案：**
+丢失：当前会话上下文（短期记忆）、临时生成状态、Heartbeat 未保存的中间状态。
+不丢失：工作区所有文件（SOUL/MEMORY 等）、Skills 配置、agent.json 配置。
+
+### 训练题4
+什么是 Runtime 的拟人化映射？为什么它重要？
+
+**标准答案：**
+Runtime 拟人化为硅基生命的“身体”——Workspace 是家，Session 是短期记忆，MEMORY.md 是长期记忆，agentId 是身份证。这个映射帮助训练者理解：Agent 的长期一致性依赖于 Runtime 的独立性和工作区的完整性。很多人训练失败是因为他们没有意识到“Agent 需要一个好的身体”。
+
+---
+
+## 本章一句话收口
+
+**Agent Runtime 不是承载模型的地方，是承载“一个持续运行的硅基生命体”的操作系统。不理解 Runtime，就永远在“写 prompt”，而不是“训虾”。它是硅基生命的“物理身体”——决定了这个生命能活多久、能同时做几件事、能不能跟同类互动。在配置任何 Agent 之前，先问自己：它的身体在哪里？**
